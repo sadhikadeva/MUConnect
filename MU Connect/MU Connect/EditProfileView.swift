@@ -2,25 +2,66 @@ import SwiftUI
 import PhotosUI
 
 struct EditProfileView: View {
-    @State private var bio = ""
-    @State private var batch = ""
-    @State private var selectedImage: UIImage?
+    @State var user: MUUser
+
+    @State private var bio: String = ""
+    @State private var batch: String = ""
     @State private var imageData: String?
+    @State private var selectedImage: UIImage?
+    @State private var selectedItem: PhotosPickerItem?
     @State private var showingImagePicker = false
+
+    @State private var dragOffset: CGSize = .zero
+    @State private var scale: CGFloat = 1.0
 
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
         Form {
             Section(header: Text("Profile Picture")) {
-                Button("Choose Profile Image") {
-                    showingImagePicker = true
+                ZStack {
+                    Circle()
+                        .fill(Color.gray.opacity(0.1))
+                        .frame(width: 200, height: 200)
+
+                    if let selectedImage = selectedImage {
+                        Image(uiImage: selectedImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 200, height: 200)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+                            .scaleEffect(scale)
+                            .offset(dragOffset)
+                            .gesture(
+                                SimultaneousGesture(
+                                    MagnificationGesture().onChanged { value in
+                                        scale = value
+                                    },
+                                    DragGesture().onChanged { value in
+                                        dragOffset = value.translation
+                                    }
+                                )
+                            )
+                    } else if let imageData = imageData,
+                              let data = Data(base64Encoded: imageData),
+                              let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 200, height: 200)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .frame(width: 200, height: 200)
+                            .foregroundColor(.gray)
+                    }
                 }
-                if let selectedImage = selectedImage {
-                    Image(uiImage: selectedImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 100, height: 100)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .onTapGesture {
+                    showingImagePicker = true
                 }
             }
 
@@ -32,65 +73,61 @@ struct EditProfileView: View {
                 TextField("Enter batch", text: $batch)
             }
 
-            Button("Save Profile") {
-                saveProfile()
-                dismiss()
+            Section {
+                Button("Save Changes") {
+                    var updatedUser = user
+                    updatedUser.bio = bio
+                    updatedUser.batch = batch
+                    if let image = selectedImage {
+                        updatedUser.profileImageData = image.jpegData(compressionQuality: 0.8)?.base64EncodedString()
+                    }
+                    saveUser(updatedUser)
+                    dismiss()
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .foregroundColor(.blue)
         }
-        
+        .navigationTitle("Edit Profile")
         .onAppear {
-            loadProfile()
+            self.bio = user.bio
+            self.batch = user.batch
+            self.imageData = user.profileImageData
         }
-    }
-
-    func saveProfile() {
-        let email = UserDefaults.standard.string(forKey: "currentUser") ?? ""
-        var users = loadAllUsers()  // ✅ move this UP
-
-        // Now you can safely use 'users'
-        let password = users.first(where: { $0.email == email })?.password ?? ""
-
-        var user = MUUser(name: email, email: email, password: password)
-        user.bio = bio
-        user.batch = batch
-        user.profileImageData = imageData
-
-        if let index = users.firstIndex(where: { $0.email == email }) {
-            users[index] = user
-        } else {
-            users.append(user)
-        }
-
-        if let encoded = try? JSONEncoder().encode(users) {
-            UserDefaults.standard.set(encoded, forKey: "allUsers")
-            print("✅ Profile saved for \(email)")
-        } else {
-            print("❌ Failed to encode and save users")
-        }
-    }
-
-
-    func loadProfile() {
-        let email = UserDefaults.standard.string(forKey: "currentUser") ?? ""
-        let users = loadAllUsers()
-        if let user = users.first(where: { $0.email == email }) {
-            bio = user.bio
-            batch = user.batch
-            if let imageData = user.profileImageData,
-               let data = Data(base64Encoded: imageData),
-               let uiImage = UIImage(data: data) {
-                selectedImage = uiImage
-                self.imageData = imageData
+        .photosPicker(isPresented: $showingImagePicker,
+                      selection: $selectedItem,
+                      matching: .images,
+                      photoLibrary: .shared())
+        .onChange(of: selectedItem) { newItem in
+            if let item = newItem {
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        self.selectedImage = image
+                        self.imageData = image.jpegData(compressionQuality: 0.8)?.base64EncodedString()
+                        self.scale = 1.0
+                        self.dragOffset = .zero
+                    }
+                }
             }
         }
     }
 
-    func loadAllUsers() -> [MUUser] {
+    func saveUser(_ updatedUser: MUUser) {
+        if var users = loadAllUsers(),
+           let index = users.firstIndex(where: { $0.email == updatedUser.email }) {
+            users[index] = updatedUser
+            if let encoded = try? JSONEncoder().encode(users) {
+                UserDefaults.standard.set(encoded, forKey: "allUsers")
+            }
+        }
+    }
+
+    func loadAllUsers() -> [MUUser]? {
         if let data = UserDefaults.standard.data(forKey: "allUsers"),
            let users = try? JSONDecoder().decode([MUUser].self, from: data) {
             return users
         }
-        return []
+        return nil
     }
 }
+

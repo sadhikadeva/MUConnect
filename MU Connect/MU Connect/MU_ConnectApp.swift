@@ -1,17 +1,30 @@
+//import SwiftUI
 //
-//  MU_ConnectApp.swift
-//  MU Connect
-//
-//  Created by Niyathi on 3/10/25.
-//
+//@main
+//struct MU_ConnectApp: App {
+//    @AppStorage("isLoggedIn") var isLoggedIn: Bool = false
+//    var body: some Scene {
+//        WindowGroup {
+//            if isLoggedIn {
+//                MainTabView()
+//            } else {
+//                LoginView()
+//            }
+//        }
+//    }
+//}
 
+
+
+
+ //to instantly go back to login page without losing anything
 import SwiftUI
 
 @main
 struct MU_ConnectApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LoginView() // 🚨 Force show login screen for now
         }
     }
 }

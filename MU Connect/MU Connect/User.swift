@@ -15,6 +15,8 @@ struct MUUser: Codable, Identifiable {
     var bio: String
     var batch: String
     var profileImageData: String?  // Base64-encoded image
+    var following: [String]
+
 
     init(name: String, email: String, password: String) {
         self.id = UUID()
@@ -24,5 +26,7 @@ struct MUUser: Codable, Identifiable {
         self.bio = ""
         self.batch = ""
         self.profileImageData = nil
+        self.following = []
+   
     }
 }

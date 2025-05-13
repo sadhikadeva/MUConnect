@@ -4,10 +4,10 @@ struct MainTabView: View {
     var body: some View {
         TabView {
             FeedView()
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("Feed")
-                }
+                    .tabItem {
+                        Label("Feed", systemImage: "house")
+                    }
+                
 
             ConnectView()
                 .tabItem {

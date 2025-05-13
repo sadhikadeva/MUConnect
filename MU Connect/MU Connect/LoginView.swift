@@ -1,73 +1,91 @@
 import SwiftUI
 
 struct LoginView: View {
-    @State private var email = ""
-    @State private var password = ""
-    @State private var isPasswordVisible = false
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var isLoggedIn = false
+    @State private var showSignup = false
     @State private var showAlert = false
     @State private var alertMessage = ""
-    @State private var isLoggedIn = false
-    @State private var showSignUp = false
+    @State private var showPassword = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Welcome to MU Connect")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        NavigationView {
+            VStack(spacing: 20) {
+                Image(systemName: "graduationcap")
+                    .resizable()
+                    .frame(width: 50, height: 50)
+                    .foregroundColor(.blue)
+                    .padding(.top, 40)
 
-            TextField("Email", text: $email)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .keyboardType(.emailAddress)
+                Text("MU Connect")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
 
-            if isPasswordVisible {
-                TextField("Password", text: $password)
+                Text("Building Bridges, Creating Opportunities.")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+
+                TextField("Email", text: $email)
+                    .autocapitalization(.none)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-            } else {
-                SecureField("Password", text: $password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-            }
+                    .padding(.horizontal)
 
-            Toggle("Show Password", isOn: $isPasswordVisible)
-                .toggleStyle(SwitchToggleStyle(tint: .blue))
-
-            Button("Login") {
-                let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                let users = UserDefaults.standard.dictionary(forKey: "users") as? [String: [String: String]] ?? [:]
-
-                if let user = users[trimmedEmail], user["password"] == trimmedPassword {
-                    UserDefaults.standard.set(trimmedEmail, forKey: "currentUser")
-                    isLoggedIn = true
+                if showPassword {
+                    TextField("Password", text: $password)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .padding(.horizontal)
                 } else {
-                    alertMessage = "Invalid email or password"
-                    showAlert = true
+                    SecureField("Password", text: $password)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .padding(.horizontal)
                 }
+
+                Toggle("Show Password", isOn: $showPassword)
+                    .padding(.horizontal)
+
+                Button("Login") {
+                    login()
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+
+                Button("Don't have an account? Sign up") {
+                    showSignup = true
+                }
+                .padding(.top, 10)
+
+                NavigationLink(destination: MainTabView(), isActive: $isLoggedIn) { EmptyView() }
             }
             .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(10)
-
-            Button("Don't have an account? Sign up") {
-                showSignUp = true
+            .alert(isPresented: $showAlert) {
+                Alert(title: Text("Login Failed"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
             }
+            .sheet(isPresented: $showSignup) {
+                SignUpView()
+            }
+        }
+    }
 
-            Spacer()
+    func login() {
+        guard let data = UserDefaults.standard.data(forKey: "allUsers"),
+              let users = try? JSONDecoder().decode([MUUser].self, from: data) else {
+            alertMessage = "No users found."
+            showAlert = true
+            return
         }
-        .padding()
-        .alert(isPresented: $showAlert) {
-            Alert(title: Text("Login Error"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
-        }
-        .fullScreenCover(isPresented: $isLoggedIn) {
-            MainTabView()
-        }
-        .fullScreenCover(isPresented: $showSignUp) {
-            SignUpView()
+
+        if let matchedUser = users.first(where: { $0.email == email && $0.password == password }) {
+            UserDefaults.standard.set(matchedUser.email, forKey: "currentUser")
+            isLoggedIn = true
+        } else {
+            alertMessage = "Invalid email or password."
+            showAlert = true
         }
     }
 }
 
-#Preview {
-    LoginView()
-}

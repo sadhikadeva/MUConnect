@@ -1,10 +1,3 @@
-//
-//  ChatDetailView.swift
-//  MU Connect
-//
-//  Created by Niyathi on 5/5/25.
-//
-
 import SwiftUI
 
 struct ChatDetailView: View {

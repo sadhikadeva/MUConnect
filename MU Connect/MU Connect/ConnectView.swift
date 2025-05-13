@@ -1,67 +1,38 @@
+
 import SwiftUI
 
 struct ConnectView: View {
-    @State private var users: [String: [String: String]] = [:]
-    @State private var currentUser: String = UserDefaults.standard.string(forKey: "currentUser") ?? ""
-    @State private var followingList: [String] = []
+    @State private var users: [MUUser] = []
+    @State private var currentUserEmail: String = ""
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(users.filter { $0.key != currentUser }, id: \.key) { email, data in
-                    VStack(alignment: .leading) {
-                        Text(data["name"] ?? "Unknown")
-                            .font(.headline)
-                        Text(data["batch"] ?? "")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                        Text(data["bio"] ?? "")
-                            .font(.body)
-
-                        Button(action: {
-                            toggleFollow(email)
-                        }) {
-                            Text(followingList.contains(email) ? "Following" : "Follow")
-                                .padding(6)
-                                .frame(maxWidth: .infinity)
-                                .background(followingList.contains(email) ? Color.green : Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
+                ForEach(users.filter { $0.email != currentUserEmail }) { user in
+                    NavigationLink(destination: UserProfileView(user: user)) {
+                        VStack(alignment: .leading) {
+                            Text(user.name)
+                                .font(.headline)
+                            Text(user.email)
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
                         }
-                        .padding(.top, 5)
                     }
-                    .padding(.vertical, 8)
                 }
             }
             .navigationTitle("Connect")
+            .onAppear {
+                loadUsers()
+            }
         }
-        .onAppear(perform: loadUsers)
     }
 
     func loadUsers() {
-        users = UserDefaults.standard.dictionary(forKey: "users") as? [String: [String: String]] ?? [:]
-
-        let allFollowing = UserDefaults.standard.dictionary(forKey: "followingList") as? [String: [String]] ?? [:]
-        followingList = allFollowing[currentUser] ?? []
-    }
-
-    func toggleFollow(_ otherUser: String) {
-        var allFollowing = UserDefaults.standard.dictionary(forKey: "followingList") as? [String: [String]] ?? [:]
-
-        var currentFollowing = allFollowing[currentUser] ?? []
-
-        if let index = currentFollowing.firstIndex(of: otherUser) {
-            currentFollowing.remove(at: index)
-        } else {
-            currentFollowing.append(otherUser)
+        if let saved = UserDefaults.standard.data(forKey: "allUsers"),
+           let decoded = try? JSONDecoder().decode([MUUser].self, from: saved) {
+            self.users = decoded
         }
 
-        allFollowing[currentUser] = currentFollowing
-        UserDefaults.standard.set(allFollowing, forKey: "followingList")
-        followingList = currentFollowing
+        self.currentUserEmail = UserDefaults.standard.string(forKey: "currentUser") ?? ""
     }
-}
-
-#Preview {
-    ConnectView()
 }
